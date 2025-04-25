@@ -8,7 +8,7 @@ from telegram import Bot, Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
 # ==== НАСТРОЙКИ ====
-TELEGRAM_TOKEN = 'ТВОЙ_ТОКЕН'
+TELEGRAM_TOKEN = '7808119794:AAHsdjR7IECQlR8zFHFsRTLIt5yAshYINDA'
 USER_USERNAME = '@absadykov4'
 USER_ID = None
 
