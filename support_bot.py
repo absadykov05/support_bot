@@ -66,7 +66,12 @@ def schedule_loop(bot: Bot, chat_id):
 
 def start(update, context):
     user = update.message.from_user
-    update.message.reply_text(f"Я вижу тебя! Username: @{user.username}, ID: {user.id}")
+    global USER_ID
+    if user.username and ("@" + user.username) == USER_USERNAME:
+        USER_ID = user.id
+        update.message.reply_text("SupportBuddy готов напоминать тебе о парах и дзюдо!")
+    else:
+        update.message.reply_text("Извини, этот бот только для хозяина :)")
 
 
 def main():
