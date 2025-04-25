@@ -1,1 +1,1 @@
-worker: python suport_bot.py
+worker: python support_bot.py
