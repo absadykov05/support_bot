@@ -7,20 +7,20 @@ import time as time_module
 from telegram import Bot, Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# ==== НАСТРОЙКИ ====
-TELEGRAM_TOKEN = '7808119794:AAHsdjR7IECQlR8zFHFsRTLIt5yAshYINDA'
+# ========== НАСТРОЙКИ ==========
+TELEGRAM_TOKEN = 'ТВОЙ_НОВЫЙ_ТОКЕН_ЗДЕСЬ'   # <-- Вставь новый актуальный токен!
 USER_USERNAME = '@absadykov4'
 USER_ID = None
 
-TIMEZONE = pytz.timezone("Asia/Almaty")  # или свой
+TIMEZONE = pytz.timezone("Asia/Almaty")  # Твой часовой пояс
 
-# --- Долгоживущие списки (в памяти, на сервере сбросятся при перезапуске) ---
+# ========== ДАННЫЕ В ПАМЯТИ ==========
 events = []
 shopping_list = []
 todo_list = []
 birthdays = []
 
-# --- Твоё расписание ---
+# ========== РАСПИСАНИЕ ==========
 SCHEDULE = {
     "monday": [
         (time(10, 0), time(10, 50), "Database Management Systems", "1.1.241"),
@@ -39,14 +39,16 @@ SCHEDULE = {
     ],
 }
 
-# Дзюдо: вт, чт, сб
+# Дзюдо: вт, чт, сб, напоминание в 17:00
 JUDO_DAYS = ["tuesday", "thursday", "saturday"]
 JUDO_REMINDER_TIME = time(17, 0)
 
+# Время напоминания лечь спать
+SLEEP_REMINDER_HOUR = 23
+SLEEP_REMINDER_MIN = 0
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 
 def send_msg(bot: Bot, chat_id, text):
     try:
@@ -54,9 +56,8 @@ def send_msg(bot: Bot, chat_id, text):
     except Exception as e:
         logger.error(f"Send error: {e}")
 
-# ========== ИВЕНТЫ (события) ==========
+# ========== EVENTS ==========
 def parse_event(text):
-    # "ивент 28.05 10:00 джим с Дидаром"
     match = re.match(r"ивент (\d{2})\.(\d{2}) (\d{2}):(\d{2}) (.+)", text, re.IGNORECASE)
     if not match:
         return None
@@ -66,7 +67,6 @@ def parse_event(text):
     try:
         event_time = datetime(year, int(month), int(day), int(hour), int(minute), tzinfo=TIMEZONE)
         if event_time < now:
-            # Если дата уже прошла, на следующий год
             event_time = datetime(year+1, int(month), int(day), int(hour), int(minute), tzinfo=TIMEZONE)
         return event_time, desc
     except:
@@ -117,7 +117,6 @@ def clear_todos():
 
 # ========== ДНИ РОЖДЕНИЯ ==========
 def parse_birthday(text):
-    # "деньр 11.06 Аружан"
     match = re.match(r"деньр (\d{2})\.(\d{2}) (.+)", text, re.IGNORECASE)
     if not match:
         return None
@@ -130,7 +129,6 @@ def check_birthdays(bot, chat_id):
         day, month, name = bday
         if now.day == day and now.month == month:
             send_msg(bot, chat_id, f"Сегодня день рождения у {name}! Не забудь поздравить 🎉")
-            # Можно не удалять, если нужно ежегодное напоминание
 
 # ========== РАСПИСАНИЕ ==========
 def today_schedule():
@@ -150,8 +148,13 @@ def on_message(update: Update, context: CallbackContext):
     user = update.message.from_user
     chat_id = update.effective_chat.id
 
+    # Если не определён USER_ID, просим написать /start
+    global USER_ID
+    if USER_ID is None:
+        update.message.reply_text("⚠️ Напиши /start для активации напоминаний!")
+        return
+
     if user.username and ("@" + user.username) == USER_USERNAME:
-        # --- Список покупок ---
         if text.lower().startswith("добавь в список"):
             update.message.reply_text(add_shopping_item(text))
             return
@@ -165,7 +168,6 @@ def on_message(update: Update, context: CallbackContext):
             update.message.reply_text(clear_shopping_list())
             return
 
-        # --- To-Do ---
         if text.lower().startswith("дело"):
             update.message.reply_text(add_todo(text))
             return
@@ -176,7 +178,6 @@ def on_message(update: Update, context: CallbackContext):
             update.message.reply_text(clear_todos())
             return
 
-        # --- Ивенты ---
         if text.lower().startswith("ивент"):
             result = parse_event(text)
             if result:
@@ -187,7 +188,6 @@ def on_message(update: Update, context: CallbackContext):
                 update.message.reply_text("Не понял формат. Пример: ивент 28.05 10:00 джим с Дидаром")
             return
 
-        # --- День рождения ---
         if text.lower().startswith("деньр"):
             result = parse_birthday(text)
             if result:
@@ -198,12 +198,10 @@ def on_message(update: Update, context: CallbackContext):
                 update.message.reply_text("Формат: деньр 11.06 Аружан")
             return
 
-        # --- Расписание (на всякий случай через сообщение) ---
         if text.lower() in ["расписание", "schedule"]:
             update.message.reply_text(today_schedule())
             return
 
-        # --- Если ничего не подошло ---
         update.message.reply_text("Я тебя понял! Напомни, если надо что-то добавить в список, дело, событие или расписание.")
 
     else:
@@ -215,7 +213,7 @@ def start(update, context):
     global USER_ID
     if user.username and ("@" + user.username) == USER_USERNAME:
         USER_ID = user.id
-        update.message.reply_text("SupportBuddy готов напоминать тебе о событиях, списках, делах и расписании!")
+        update.message.reply_text("SupportBuddy готов напоминать тебе о событиях, списках, делах, расписании и сне!")
     else:
         update.message.reply_text("Извини, этот бот только для хозяина :)")
 
@@ -224,9 +222,11 @@ def schedule(update, context):
 
 # ========== НАПОМИНАНИЯ ==========
 def schedule_loop(bot: Bot, chat_id):
+    sleep_reminded = False
     while True:
         now = datetime.now(TIMEZONE)
         weekday = now.strftime('%A').lower()
+
         # Пары
         if weekday in SCHEDULE:
             for lesson in SCHEDULE[weekday]:
@@ -236,6 +236,7 @@ def schedule_loop(bot: Bot, chat_id):
                     send_msg(bot, chat_id,
                         f"Через 10 минут пара: {lesson[2]} в кабинете {lesson[3]} ({lesson[0].strftime('%H:%M')}–{lesson[1].strftime('%H:%M')})"
                     )
+
         # Дзюдо
         if weekday in JUDO_DAYS:
             reminder = datetime.combine(now.date(), JUDO_REMINDER_TIME).replace(tzinfo=TIMEZONE)
@@ -243,9 +244,19 @@ def schedule_loop(bot: Bot, chat_id):
                 send_msg(bot, chat_id,
                     "Серик, пора читать екінті намаз и собираться на тренировку по дзюдо! Пешком идти 35 минут, чтобы прийти к 18:00."
                 )
-        # Проверяем события и дни рождения
+
+        # События, дни рождения
         check_events(bot, chat_id)
         check_birthdays(bot, chat_id)
+
+        # Напоминание лечь спать
+        if now.hour == SLEEP_REMINDER_HOUR and now.minute == SLEEP_REMINDER_MIN:
+            if not sleep_reminded:
+                send_msg(bot, chat_id, "Пора ложиться спать! Завтра продуктивный день.")
+                sleep_reminded = True
+        else:
+            sleep_reminded = False  # Сброс после часа
+
         time_module.sleep(60)
 
 # ========== MAIN ==========
